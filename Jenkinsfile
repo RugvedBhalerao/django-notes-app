@@ -1,29 +1,38 @@
-@Library('Shared')_
-pipeline{
-    agent { label 'dev-server'}
-    
+Pipeline{
+    agent any
+
+    environment{
+        IMAGE_NAME = "notes-app"
+        IMAGE_TAG = "latest"
+        DOCKER_HUB_USER = "rugved28"
+    }
     stages{
         stage("Code clone"){
-            steps{
+            steps {
                 sh "whoami"
-            clone("https://github.com/LondheShubham153/django-notes-app.git","main")
+                git branch: 'main', url: 'https://github.com/RugvedBhalerao/django-notes-app.git'
             }
         }
         stage("Code Build"){
             steps{
-            dockerbuild("notes-app","latest")
+                sh """
+                echo "Building Docker image..."
+                docker build -t $IMAGE_NAME:$IMAGE_TAG .
+                """
             }
         }
         stage("Push to DockerHub"){
             steps{
-                dockerpush("dockerHubCreds","notes-app","latest")
+                withCredentials([usernamePassword(credentialsId: 'dockerHubCreds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]){
+                    sh """
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                    docker tag $IMAGE_NAME:$IMAGE_TAG $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
+                    docker push $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
+                    echo "Image pushed Successfully..."
+                    """
+                }
             }
         }
-        stage("Deploy"){
-            steps{
-                deploy()
-            }
-        }
-        
+
     }
 }
